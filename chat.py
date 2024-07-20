@@ -1,69 +1,83 @@
+import customtkinter as ctk
 import socket
 import threading
-import customtkinter as ctk
 
 class ChatApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Chat Application")  # Título da janela
-        self.geometry("400x400")  # Tamanho da janela
+        self.title("Chat Socket")
+        self.geometry("400x400")
 
-        # Frame para a área de chat
+
         self.chat_frame = ctk.CTkFrame(self)
-        self.chat_frame.pack(fill='both', expand=True)
+        self.chat_frame.pack(fill="both", expand=True)
 
-        # Área de texto para exibir mensagens
-        self.chat_area = ctk.CTkTextbox(self.chat_frame, state='disabled')
-        self.chat_area.pack(padx=10, pady=10, fill='both', expand=True)
+        # Textbox onde ficam as mensagens
+        self.chat_text = ctk.CTkTextbox(self.chat_frame, state="disabled", wrap="word")
+        self.chat_text.pack(padx=10, pady=10, fill="both", expand=True)
 
-        # Campo de entrada para mensagens
-        self.entry = ctk.CTkEntry(self, placeholder_text="Enter your message")
-        self.entry.pack(padx=10, pady=5, fill='x')
+        # Campo de entrada para as mensagens do usuario
+        self.entry = ctk.CTkEntry(self, placeholder_text = "Digite sua mensagem")
+        self.entry.pack(fill="x", padx=10, pady=10)
 
-        # Botão para enviar mensagens
-        self.send_button = ctk.CTkButton(self, text="Send", command=self.send_message)
-        self.send_button.pack(padx=10, pady=5)
-
-        # Configuração do socket do cliente
+        # Botão para enviar a mensagem
+        self.send_btn = ctk.CTkButton(self, text="Enviar", command=self.send_message)
+        self.send_btn.pack(fill="x", padx=10, pady=15)
+        
+        # Inicializando o socket
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_socket.connect(('localhost', 12345))  # Conecta ao servidor
+        self.client_socket.connect(('localhost', 9999))
 
-        # Recebe o ID do cliente do servidor
-        self.client_id = self.client_socket.recv(1024).decode('utf-8')
-        # recebe o ID do cliente do servidor e o decodifica de bytes para string.
-        print(f"Assigned ID: {self.client_id}")
+        # Recebendo o ID do cliente e a cor
+        self.client_id, self.client_color = self.client_socket.recv(1024).decode('utf-8').split("|")
+        print(f"Cliente conectado com ID {self.client_id} e cor {self.client_color}")
 
-        # Inicia uma thread para receber mensagens
-        threading.Thread(target=self.receive_messages, daemon=True).start()
-        # threading.Thread é uma classe que representa uma thread de execução separada.
-        # target é a função que será executada na thread.
-        # daemon=True faz com que a thread seja encerrada quando o programa principal terminar.
+        # Inicializando a thread para receber mensagens
+        threading.Thread(target=self.receive_message, daemon=True).start()
 
+
+
+
+    
     def send_message(self):
-        # Envia a mensagem digitada para o servidor
-        message = self.entry.get()
+        message = self.entry.get() 
+        
         if message:
-            formatted_message = f"{self.client_id}: {message}"
-            self.client_socket.send(formatted_message.encode('utf-8'))
-            self.entry.delete(0, 'end')  # Limpa o campo de entrada
-            # Adiciona a mensagem à área de chat local
-            self.chat_area.configure(state='normal')
-            self.chat_area.insert('end', f"You ({self.client_id}): {message}\n")
-            self.chat_area.configure(state='disabled')
-            self.chat_area.yview('end')  # Rola para o final
+            message_format = f"{self.client_id}|{self.client_color}|{message}"
 
-    def receive_messages(self):
-        # Recebe mensagens do servidor e as exibe na área de chat
+            self.client_socket.send(message_format.encode('utf-8'))
+            self.entry.delete(0, "end")
+
+            self.display_message(f"You ({self.client_id}): {message}", self.client_color)
+
+
+
+    def receive_message(self):
         while True:
             try:
+                # conversar com o socket para receber a mensagem
                 message = self.client_socket.recv(1024).decode('utf-8')
-                self.chat_area.configure(state='normal')
-                self.chat_area.insert('end', message + '\n')
-                self.chat_area.configure(state='disabled')
-                self.chat_area.yview('end')  # Rola para o final
+                client_id, client_color, message = message.split("|")
+
+                self.display_message(f"{client_id}: {message}", client_color)
+
+
             except:
                 break
+    def display_message(self, message, color):
+
+        # inserir a mensagem no chat_text 
+        self.chat_text.configure(state="normal")
+        self.chat_text.insert("end", message + "\n")
+
+        tag_name = f"{color}_tag"
+        self.chat_text.tag_add(tag_name, 'end-2l', 'end-1c')
+        self.chat_text.tag_config(tag_name, foreground=color)
+        
+        self.chat_text.configure(state="disabled")
+        self.chat_text.yview("end")
+
 
 if __name__ == "__main__":
-    app = ChatApp()  # Cria a aplicação de chat
-    app.mainloop()  # Inicia a interface gráfica
+    app = ChatApp()
+    app.mainloop()
